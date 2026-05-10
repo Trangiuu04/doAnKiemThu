@@ -1,0 +1,207 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body { 
+    font-family: 'Inter', Arial, sans-serif; 
+    margin: 0;
+    padding: 20px; 
+    line-height: 1.6; 
+    /* The user's uploaded image will be used here */
+    background-image: url('hasaki_bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-color: #1a4a38; /* Fallback green color */
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+/* Thêm lớp overlay tối mờ để chữ dễ đọc hơn trên nền ảnh */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.4); /* Lớp phủ đen trong suốt 40% */
+    z-index: -1;
+}
+
+.container {
+    background: rgba(255, 255, 255, 0.85); /* Glassmorphism background */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 16px;
+    padding: 30px 40px;
+    max-width: 800px;
+    width: 100%;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+h2 {
+    color: #1f503c;
+    text-align: center;
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+h3 {
+    color: #1f503c;
+    border-bottom: 2px solid #326e51;
+    padding-bottom: 5px;
+    margin-top: 30px;
+}
+
+input[type="text"] {
+    width: 100%; 
+    padding: 12px 15px; 
+    margin-bottom: 15px; 
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.3s;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #326e51;
+    box-shadow: 0 0 5px rgba(50, 110, 81, 0.3);
+}
+
+textarea { 
+    width: 100%; 
+    height: 120px; 
+    margin-bottom: 20px; 
+    padding: 12px 15px; 
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+    resize: vertical;
+    transition: border-color 0.3s;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #326e51;
+    box-shadow: 0 0 5px rgba(50, 110, 81, 0.3);
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+button { 
+    background-color: #326e51; 
+    color: white; 
+    border: none; 
+    padding: 12px 24px; 
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer; 
+    border-radius: 8px; 
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(50, 110, 81, 0.2);
+}
+
+button:hover {
+    background-color: #26553e;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(50, 110, 81, 0.3);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+button:disabled { 
+    background-color: #a0bcae; 
+    cursor: not-allowed; 
+    box-shadow: none;
+    transform: none;
+}
+
+#convertToSeleniumBtn { 
+    background-color: #0078d7; 
+    box-shadow: 0 4px 6px rgba(0, 120, 215, 0.2);
+}
+#convertToSeleniumBtn:hover {
+    background-color: #005a9e;
+    box-shadow: 0 6px 12px rgba(0, 120, 215, 0.3);
+}
+
+#downloadSideBtn { 
+    background-color: #e06c27; 
+    box-shadow: 0 4px 6px rgba(224, 108, 39, 0.2);
+}
+#downloadSideBtn:hover {
+    background-color: #c0581c;
+    box-shadow: 0 6px 12px rgba(224, 108, 39, 0.3);
+}
+
+#output { 
+    background: #fdfdfd; 
+    padding: 20px; 
+    border-left: 5px solid #326e51; 
+    white-space: pre-wrap; 
+    margin-top: 15px; 
+    border-radius: 0 8px 8px 0;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+}
+
+#seleniumOutput { 
+    background: #f4f9fb; 
+    padding: 20px; 
+    border-left: 5px solid #0078d7; 
+    margin-top: 15px; 
+    display: none; 
+    overflow-x: auto; 
+    border-radius: 0 8px 8px 0;
+    font-family: monospace;
+    font-size: 14px;
+}
+
+.status { 
+    color: #e06c27; 
+    font-weight: 600; 
+    margin-top: 10px; 
+}
+
+/* Table styling cho Markdown */
+table { 
+    border-collapse: collapse; 
+    width: 100%; 
+    margin-top: 15px; 
+    margin-bottom: 15px; 
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+th, td { 
+    border: 1px solid #eee; 
+    padding: 12px 15px; 
+    text-align: left; 
+}
+
+th { 
+    background-color: #f8f9fa; 
+    color: #1f503c; 
+    font-weight: 600;
+}
+
+tr:nth-child(even) { 
+    background-color: #fbfbfb; 
+}
+
+tr:hover { 
+    background-color: #f1f8f4; 
+}

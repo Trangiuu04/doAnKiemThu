@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Test Case Generator - Hasaki Project</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>Đồ án: Sinh Test Case tự động cho Hasaki</h2>
+        <p>Website cần kiểm thử:</p>
+        <input type="text" id="urlInput" value="https://hasaki.vn" />
+        
+        <p>Nhập chức năng cần kiểm thử (ví dụ: "Đăng nhập", "Tìm kiếm mỹ phẩm"):</p>
+        <textarea id="promptInput" placeholder="Nhập yêu cầu tại đây..."></textarea>
+        <div class="button-group">
+            <button type="button" id="generateBtn">Tạo Test Case</button>
+            <button type="button" id="convertToSeleniumBtn" style="display: none;">Chuyển thành Selenium Script</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <h3>Kết quả Test Case:</h3>
+        <div id="output">Kết quả sẽ hiển thị ở đây...</div>
+        
+        <div id="seleniumStatus" class="status"></div>
+        <div id="seleniumOutput"></div>
+        <br>
+        <button id="downloadSideBtn" style="display: none;" onclick="downloadSideFile()">Lưu file .side</button>
+    </div>
+
+    <script type="module" src="script.js?v=2"></script>
+</body>
+</html>
