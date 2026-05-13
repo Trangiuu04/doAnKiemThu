@@ -1,335 +1,401 @@
+/* ═══════════════════════════════════════
+   CONFIG – đổi key / model chỉ ở đây
+═══════════════════════════════════════ */
+const CONFIG = {
+    API_KEY: 'AIzaSyA0nlXkcmAPekGRgLR66Xq4zp1RhMe6bBg',
+    MODEL: 'gemini-2.5-flash',
+    BASE_URL: 'https://hasaki.vn',
+};
+CONFIG.ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.MODEL}:generateContent?key=${CONFIG.API_KEY}`;
 
-// ==================== CÁC BIẾN TOÀN CỤC ====================
-const API_KEY = 'AIzaSyBlpnHlosms4dhPtJnUsVuaSGmdb_4-O5s';
-let currentTestCase = "";
-let currentSeleniumCommands = null;
+/* ═══════════════════════════════════════
+   STATE
+═══════════════════════════════════════ */
+let seleniumCommands = [];   // mảng commands sau khi parse
 
-// ==================== FETCH HTML ====================
-async function fetchHTML(url) {
-    try {
-        const proxy = "https://corsproxy.io/?";
-        const response = await fetch(proxy + encodeURIComponent(url));
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        let html = await response.text();
-        if (html.length > 65000) html = html.substring(0, 65000) + "\n... [HTML đã được rút gọn]";
-        return html;
-    } catch (error) {
-        console.error("Lỗi fetch " + url + ":", error);
-        return "[Không thể lấy HTML từ " + url + "]";
-    }
+/* ═══════════════════════════════════════
+   TOAST
+═══════════════════════════════════════ */
+let _toastTimer = null;
+function showToast(msg, type = 'success', duration = 4000) {
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toastMsg');
+    const toastIcon = document.getElementById('toastIcon');
+
+    toast.className = `toast ${type}`;
+    toastMsg.textContent = msg;
+    toastIcon.textContent = type === 'success' ? '✓' : '✕';
+
+    clearTimeout(_toastTimer);
+    // micro-delay để transition kích hoạt đúng
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => toast.classList.add('show'));
+    });
+
+    _toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
 }
 
-async function fetchMultipleHTML(baseUrl) {
-    const importantPages = [baseUrl, baseUrl + "/customer/account/login", baseUrl + "/customer/account/login/"];
-    let combinedHTML = "=== HTML CÁC TRANG QUAN TRỌNG ===\n\n";
-    for (let url of importantPages) {
-        const html = await fetchHTML(url);
-        combinedHTML += "--- Trang: " + url + " ---\n" + html + "\n\n";
-    }
-    return combinedHTML;
+/* ═══════════════════════════════════════
+   STEP INDICATOR
+═══════════════════════════════════════ */
+function setStep(n) {
+    [1, 2, 3].forEach(i => {
+        const el = document.getElementById('step' + i);
+        el.classList.remove('active', 'done');
+        if (i < n) el.classList.add('done');
+        if (i === n) el.classList.add('active');
+    });
 }
 
-// ==================== TẠO TEST CASE (ĐÃ CHỈNH SÁT GIAO DIỆN) ====================
-async function generateTestCase() {
-    const input = document.getElementById('promptInput').value.trim();
-    const outputDiv = document.getElementById('output');
-    const btn = document.getElementById('generateBtn');
-    const status = document.getElementById('status');
-    const convertBtn = document.getElementById('convertToSeleniumBtn');
+/* ═══════════════════════════════════════
+   PILL SELECTOR
+═══════════════════════════════════════ */
+document.querySelectorAll('.pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
 
-    if (!input) {
-        alert("Vui lòng nhập chức năng cần kiểm thử!");
-        return;
-    }
-
-    btn.disabled = true;
-    status.innerText = "Đang tạo Test Case...";
-    outputDiv.innerHTML = "<p style='color:orange'>Đang sinh test case chi tiết...</p>";
-    convertBtn.style.display = 'none';
-    if (document.getElementById('downloadSideBtn')) document.getElementById('downloadSideBtn').style.display = 'none';
-
-    const prompt = `Bạn là chuyên gia kiểm thử website Hasaki.vn. 
-Hãy tạo bộ test case CHI TIẾT cho chức năng "${input}" theo đúng giao diện trang đăng nhập hiện tại.
-
-Giao diện trang Đăng nhập bao gồm:
-- Nút Facebook (màu xanh dương)
-- Nút "Đăng nhập bằng Google"
-- Phần "Hoặc đăng nhập với Hasaki.vn"
-- Ô input: "Nhập email hoặc số điện thoại" nhưng trên thực tế chỉ nhập được số điện thoại thô để đăng nhập.
-- Ô input: "Nhập password"
-- Checkbox "Nhớ mật khẩu"
-- Nút "Đăng nhập" lớn màu xanh lá
-
-
-Thông tin tài khoản test:
-- SĐT: 0377787281
-- Password: Kieutrang04@
-
-LƯU Ý: khi ghi test case cho ô "Nhập email hoặc số điện thoại", chỉ sử dụng số điện thoại, không sử dụng email.
-
-YÊU CẦU BẮT BUỘC:
-- Trả về NGAY BẢNG MARKDOWN, KHÔNG viết bất kỳ lời giới thiệu nào.
-- Ít nhất 8-10 test case.
-- Cột: ID | Tên Test Case | Các Bước Thực Hiện | Kết Quả Mong Đợi
-- Phải bao quát đầy đủ tất cả các thành phần trên giao diện.
-
-Bắt đầu trực tiếp bằng bảng Markdown:`;
-
-    try {
-        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + API_KEY, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || data.error) {
-            const message = data?.error?.message || `HTTP ${response.status} ${response.statusText}`;
-            outputDiv.innerHTML = `<span style="color:red">Lỗi: ${message}</span>`;
-            console.error('generateTestCase API error:', data);
+        const customWrap = document.getElementById('customWrap');
+        if (pill.dataset.value === 'Khác') {
+            customWrap.style.display = 'block';
+            document.getElementById('customInput').focus();
         } else {
-            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
-                || data?.candidates?.[0]?.content?.[0]?.text
-                || data?.candidates?.[0]?.content?.[0]?.parts?.[0]?.text;
-
-            if (!text) {
-                outputDiv.innerHTML = `<span style="color:red">Lỗi: Không nhận được nội dung test case từ API.</span>`;
-                console.error('generateTestCase parse error:', data);
-            } else {
-                currentTestCase = text;
-                outputDiv.innerHTML = (typeof marked !== "undefined" && marked.parse)
-                    ? marked.parse(currentTestCase)
-                    : `<pre style="white-space: pre-wrap; font-size:14px;">${currentTestCase}</pre>`;
-
-                convertBtn.style.display = 'inline-block';
-            }
+            customWrap.style.display = 'none';
         }
-    } catch (error) {
-        outputDiv.innerHTML = `<span style="color:red">Lỗi kết nối: ${error.message}</span>`;
-    } finally {
-        btn.disabled = false;
-        status.innerText = "";
+    });
+});
+
+/* ═══════════════════════════════════════
+   EXTRA INFO HANDLERS
+═══════════════════════════════════════ */
+function addExtraRow() {
+    const container = document.getElementById('extraInfoContainer');
+    const row = document.createElement('div');
+    row.className = 'extra-info-row';
+    row.innerHTML = `
+        <input type="text" class="extra-info-input" placeholder="Nhập thêm thông tin hoặc lưu ý...">
+        <button type="button" class="btn-remove-row" onclick="removeExtraRow(this)">✕</button>
+    `;
+    container.appendChild(row);
+}
+
+function removeExtraRow(btn) {
+    const rows = document.querySelectorAll('.extra-info-row');
+    if (rows.length > 1) {
+        btn.parentElement.remove();
+    } else {
+        btn.parentElement.querySelector('input').value = '';
     }
 }
 
-// ==================== CHUYỂN ĐỔI SANG SELENIUM ====================
-// ==================== CHUYỂN ĐỔI SANG SELENIUM ====================
-// ==================== CHUYỂN ĐỔI SANG SELENIUM (ĐÃ SỬA) ====================
-async function convertToSelenium() {
-    if (!currentTestCase) {
-        alert("Vui lòng tạo Test Case trước!");
-        return;
+function getExtraContext() {
+    const inputs = document.querySelectorAll('.extra-info-input');
+    const values = Array.from(inputs)
+        .map(i => i.value.trim())
+        .filter(v => v !== '');
+    
+    if (values.length === 0) return '';
+    return '\n\n=== THÔNG TIN BỔ SUNG TỪ NGƯỜI DÙNG ===\n' + values.map(v => '- ' + v).join('\n');
+}
+
+/* ═══════════════════════════════════════
+   GET SELECTED FEATURE
+═══════════════════════════════════════ */
+function getFeature() {
+    const active = document.querySelector('.pill.active');
+    if (!active) return '';
+    if (active.dataset.value === 'Khác') {
+        return document.getElementById('customInput').value.trim();
+    }
+    return active.dataset.value;
+}
+
+/* ═══════════════════════════════════════
+   BUILD PROMPT – 1 bước, trả thẳng JSON
+═══════════════════════════════════════ */
+function buildPrompt(feature) {
+    const withPause = document.getElementById('optPause').checked;
+    const withWaitFor = document.getElementById('optWaitFor').checked;
+    const extraContext = getExtraContext();
+
+    return `Bạn là chuyên gia kiểm thử tự động Selenium IDE cho website Hasaki.vn.
+Nhiệm vụ: Sinh bộ Selenium commands JSON hoàn chỉnh cho chức năng "${feature}" của trang Hasaki.vn.
+
+=== THÔNG TIN TRANG HASAKI ===
+- URL gốc: https://hasaki.vn
+- Trang đăng nhập: https://hasaki.vn/customer/account/login
+
+Giao diện trang Đăng nhập:
+- Nút "Đăng nhập bằng Facebook" (màu xanh dương)
+- Nút "Đăng nhập bằng Google"
+- Ô input: placeholder="Nhập email hoặc số điện thoại"
+- Ô input: placeholder="Nhập password"
+- Checkbox "Nhớ mật khẩu"
+- Nút submit màu xanh lá, text "Đăng nhập"
+
+Tài khoản test mặc định:
+- Email: kieutrangnguyen06012004@gmail.com  |  Password: kieutrang04
+- SĐT: 0377787281  |  Password: Kieutrang04@
+- Facebook: SĐT 0377787281 | Mật khẩu Kieutrang04${extraContext}
+
+Locators cố định:
+- Ô email/SĐT  : xpath=//input[@placeholder="Nhập email hoặc số điện thoại"]
+- Ô password   : xpath=//input[@placeholder="Nhập password"]
+- Nút Facebook : xpath=//*[contains(normalize-space(.),"Facebook")]
+- Nút Google   : xpath=//*[contains(normalize-space(.),"Đăng nhập bằng Google")]
+- Nút Đăng nhập: xpath=//button[contains(normalize-space(.),"Đăng nhập")]
+- Lỗi sai TK   : xpath=//*[contains(normalize-space(.),"Tài khoản và mật khẩu không khớp")]
+
+=== QUY TẮC BẮT BUỘC ===
+Lệnh được phép: open, click, execute script, pause, verifyText, verifyElementPresent, waitForElementPresent
+Lệnh CẤM: type, sendKeys, setWindowSize, waitForURL, assertTitle (không tồn tại trong Selenium IDE)
+
+Khi cần nhập text vào input, PHẢI dùng "execute script" với target:
+document.evaluate('XPath_tại_đây', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.value = 'giá_trị';
+${withWaitFor ? '- Trước mỗi lần nhập text, PHẢI thêm waitForElementPresent cho ô đó.' : ''}
+${withPause ? '- Sau mỗi bước nhập, thêm pause với value="3000".' : ''}
+- Sau đăng nhập thành công (SĐT), thêm pause(5000) rồi verifyElementPresent của header trang chủ.
+- Test case đăng nhập bằng email là negative: xác nhận thông báo lỗi xuất hiện.
+
+=== CẤU TRÚC OUTPUT (QUAN TRỌNG) ===
+Để tránh việc 1 test case lỗi làm dừng cả suite, bạn PHẢI tách mỗi test case thành một object riêng biệt.
+Chỉ trả về MỘT mảng JSON các object test case. KHÔNG có bất kỳ chữ nào trước hoặc sau.
+
+Định dạng:
+[
+  {
+    "name": "Tên Test Case 1",
+    "commands": [
+       {"command":"open","target":"/customer/account/login","value":"","description":"..."},
+       ...
+    ]
+  },
+  {
+    "name": "Tên Test Case 2",
+    "commands": [...]
+  }
+]
+
+Tạo ít nhất 8-10 test cases bao phủ đầy đủ: happy path (dùng thông tin bổ sung nếu có), negative, edge case.`;
+}
+
+/* ═══════════════════════════════════════
+   CALL GEMINI API
+═══════════════════════════════════════ */
+async function callGemini(prompt) {
+    const res = await fetch(CONFIG.ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+        throw new Error(data?.error?.message || `HTTP ${res.status}`);
     }
 
-    const baseUrl = document.getElementById('urlInput').value || 'https://hasaki.vn';
-    const convertBtn = document.getElementById('convertToSeleniumBtn');
-    const seleniumOutputDiv = document.getElementById('seleniumOutput');
-    const seleniumStatus = document.getElementById('seleniumStatus');
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+        || data?.candidates?.[0]?.content?.[0]?.text
+        || '';
+    if (!text) throw new Error('API không trả về nội dung.');
+    return text;
+}
 
-    convertBtn.disabled = true;
-    seleniumStatus.innerText = "Đang tạo Selenium Script...";
-    seleniumOutputDiv.style.display = 'block';
-    seleniumOutputDiv.innerHTML = "<p style='color:orange'>Đang xử lý và parse JSON...</p>";
+/* ═══════════════════════════════════════
+   PARSE & NORMALISE COMMANDS
+═══════════════════════════════════════ */
+function parseCommands(rawText) {
+    const start = rawText.indexOf('[');
+    const end = rawText.lastIndexOf(']') + 1;
+    if (start === -1 || end <= start) throw new Error('Không tìm thấy JSON array trong response.');
 
-    const combinedHTML = await fetchMultipleHTML(baseUrl);
+    const jsonStr = rawText.slice(start, end).replace(/,\s*([\]}])/g, '$1');
+    const parsed = JSON.parse(jsonStr);
 
-    const prompt = `Bạn là chuyên gia Selenium IDE cho Hasaki.vn.
+    const ALLOWED = new Set(['open', 'click', 'execute script', 'pause', 'verifyText', 'verifyElementPresent', 'waitForElementPresent']);
 
-HTML thực tế: ${combinedHTML}
+    // Tương thích ngược: Nếu AI trả về mảng commands thô thay vì mảng test cases
+    const testCases = parsed[0]?.commands ? parsed : [{ name: "Generated Test", commands: parsed }];
 
-Test Case: ${currentTestCase}
-
-YÊU CẦU RẤT NGHIÊM NGẶT:
-- Tạo đầy đủ các command Selenium để thực hiện các test case.
-- CHỈ dùng các lệnh hợp lệ của Selenium IDE: open, click, type, pause, verifyText, verifyElementPresent, waitForElementPresent
-- KHÔNG được dùng: setWindowSize, waitForURL, assertTitle, hay bất kỳ lệnh không tồn tại
-- Nếu cần chờ URL thay đổi, dùng pause(2000) hoặc waitForElementPresent
-- Locator chính:
-  - Email/SĐT: xpath=//input[@placeholder="Nhập email hoặc số điện thoại"]
-  - Password: xpath=//input[@placeholder="Nhập password"]
-  - Nút Facebook: xpath=//button[contains(text(),"Facebook")]
-  - Nút Google: xpath=//button[contains(text(),"Đăng nhập bằng Google")]
-  - Nút Đăng nhập: xpath=//button[contains(text(),"Đăng nhập")]
-
-Chỉ trả về **DUY NHẤT** một mảng JSON hợp lệ, không thêm bất kỳ chữ nào khác trước hoặc sau mảng:
-
-[
-  {"command": "open", "target": "/customer/account/login", "value": "", "description": "Mở trang đăng nhập"},
-  ...
-]`;
-
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || data.error) {
-            const message = data?.error?.message || `HTTP ${response.status} ${response.statusText}`;
-            seleniumOutputDiv.innerHTML = `<span style="color:red">Lỗi API: ${message}</span>`;
-            console.error('convertToSelenium API error:', data);
-            return;
-        }
-
-        let resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text
-            || data?.candidates?.[0]?.content?.[0]?.text
-            || data?.candidates?.[0]?.content?.[0]?.parts?.[0]?.text
-            || '';
-        console.log("Raw response:", resultText);   // Debug
-
-        // Lấy phần JSON
-        let start = resultText.indexOf('[');
-        let end = resultText.lastIndexOf(']') + 1;
-
-        if (start === -1 || end <= start) {
-            seleniumOutputDiv.innerHTML = `<span style="color:red">Gemini không trả về JSON hợp lệ.</span>`;
-            console.log("Không tìm thấy JSON");
-            return;
-        }
-
-        resultText = resultText.substring(start, end);
-        resultText = resultText.replace(/,\s*([\]}])/g, '$1'); // Fix trailing comma
-
-        const parsedCommands = JSON.parse(resultText);
-        const commands = parsedCommands.map(cmd => {
-            const command = (cmd.command || '').trim();
-            if (command === 'type' || command === 'sendKeys') {
+    return testCases.map(tc => ({
+        name: tc.name || "Untitled Test",
+        commands: tc.commands.map(cmd => {
+            const c = (cmd.command || '').trim();
+            if (c === 'type' || c === 'sendKeys') {
                 const xpath = (cmd.target || '').replace(/^xpath=/, '');
                 return {
                     ...cmd,
                     command: 'execute script',
                     target: `document.evaluate(${JSON.stringify(xpath)}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.value = ${JSON.stringify(cmd.value || '')};`,
-                    value: ''
+                    value: '',
                 };
             }
+            if (c === 'waitForElementPresent') return { ...cmd, value: cmd.value || '30000' };
             return cmd;
-        });
-
-        currentSeleniumCommands = commands;
-
-        // Hiển thị bảng
-        let tableHTML = `<table border="1" style="width:100%; border-collapse:collapse; margin-top:10px;">
-            <tr><th>Command</th><th>Target</th><th>Value</th><th>Description</th></tr>`;
-
-        commands.forEach(cmd => {
-            tableHTML += `<tr>
-                <td>${cmd.command || ''}</td>
-                <td style="word-break:break-all;">${cmd.target || ''}</td>
-                <td>${cmd.value || ''}</td>
-                <td>${cmd.description || ''}</td>
-            </tr>`;
-        });
-
-        tableHTML += `</table>`;
-        seleniumOutputDiv.innerHTML = tableHTML;
-
-        if (document.getElementById('downloadSideBtn')) {
-            document.getElementById('downloadSideBtn').style.display = 'inline-block';
-        }
-
-    } catch (error) {
-        console.error(error);
-        seleniumOutputDiv.innerHTML = `<span style="color:red">Lỗi: ${error.message}</span>`;
-    } finally {
-        convertBtn.disabled = false;
-        seleniumStatus.innerText = "";
-    }
+        }).filter(cmd => ALLOWED.has((cmd.command || '').trim()))
+    }));
 }
 
-// ==================== DOWNLOAD .SIDE ====================
-function downloadSideFile() {
-    if (!currentSeleniumCommands || currentSeleniumCommands.length === 0) {
-        alert("Vui lòng tạo Selenium commands trước khi lưu file.");
-        return;
-    }
+/* ═══════════════════════════════════════
+   RENDER PREVIEW TABLE
+═══════════════════════════════════════ */
+function renderTable(testCases) {
+    const tbody = document.getElementById('previewBody');
+    tbody.innerHTML = '';
+    let totalCmds = 0;
 
-    const baseUrl = document.getElementById('urlInput').value || 'https://hasaki.vn';
-    const testId = generateUUID();
-    const suiteId = generateUUID();
-    const projectId = generateUUID();
-    const fileName = 'hasaki-test.side';
+    testCases.forEach((tc, tcIdx) => {
+        const headerTr = document.createElement('tr');
+        headerTr.style.background = 'rgba(235,47,150,0.15)';
+        headerTr.innerHTML = `
+            <td colspan="5" style="color: var(--pink-300); font-weight: 700; padding: 10px 14px;">
+                📦 TEST CASE ${tcIdx + 1}: ${esc(tc.name)}
+            </td>
+        `;
+        tbody.appendChild(headerTr);
 
-    const sideData = {
-        id: projectId,
-        version: '3.17.0',
-        name: 'Hasaki Test',
-        url: baseUrl,
-        tests: [
-            {
-                id: testId,
-                name: 'Generated Test',
-                commands: currentSeleniumCommands.map(cmd => {
-                    const command = (cmd.command || '').trim();
-                    if (command === 'type' || command === 'sendKeys') {
-                        const xpath = (cmd.target || '').replace(/^xpath=/, '');
-                        return {
-                            id: generateUUID(),
-                            comment: '',
-                            command: 'execute script',
-                            target: `document.evaluate(${JSON.stringify(xpath)}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.value = ${JSON.stringify(cmd.value || '')};`,
-                            value: ''
-                        };
-                    }
-                    return {
-                        id: generateUUID(),
-                        comment: '',
-                        command,
-                        target: cmd.target || '',
-                        value: cmd.value || ''
-                    };
-                })
-            }
-        ],
-        suites: [
-            {
-                id: suiteId,
-                name: 'Default Suite',
-                tests: [
-                    {
-                        id: testId,
-                        name: 'Generated Test'
-                    }
-                ]
-            }
-        ],
-        urls: [baseUrl],
-        plugins: []
-    };
-
-    const blob = new Blob([JSON.stringify(sideData, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
+        tc.commands.forEach((cmd, i) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${i + 1}</td>
+                <td>${esc(cmd.command || '')}</td>
+                <td>${esc(cmd.target || '')}</td>
+                <td>${esc(cmd.value || '')}</td>
+                <td>${esc(cmd.description || '')}</td>`;
+            tbody.appendChild(tr);
+            totalCmds++;
+        });
+    });
+    document.getElementById('cmdCount').textContent = `${testCases.length} tests, ${totalCmds} commands`;
 }
 
-function generateUUID() {
+function esc(str) {
+    return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ═══════════════════════════════════════
+   BUILD .SIDE FILE STRUCTURE
+═══════════════════════════════════════ */
+function uuid() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const r = Math.random() * 16 | 0;
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
     });
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    const generateBtn = document.getElementById('generateBtn');
-    const convertBtn = document.getElementById('convertToSeleniumBtn');
-    const downloadBtn = document.getElementById('downloadSideBtn');
+function buildSideFile(testCases, feature) {
+    const suiteId = uuid();
+    const projectId = uuid();
 
-    if (generateBtn) {
-        generateBtn.addEventListener('click', generateTestCase);
+    const tests = testCases.map(tc => ({
+        id: uuid(),
+        name: tc.name,
+        commands: tc.commands.map(cmd => ({
+            id: uuid(),
+            comment: '',
+            command: (cmd.command || '').trim(),
+            target: cmd.target || '',
+            value: cmd.value || '',
+        })),
+    }));
+
+    return {
+        id: projectId,
+        version: '3.17.0',
+        name: `Hasaki – ${feature}`,
+        url: CONFIG.BASE_URL,
+        tests: tests,
+        suites: [{
+            id: suiteId,
+            name: 'Default Suite',
+            tests: tests.map(t => t.id),
+        }],
+        urls: [CONFIG.BASE_URL],
+        plugins: [],
+    };
+}
+
+/* ═══════════════════════════════════════
+   DOWNLOAD
+═══════════════════════════════════════ */
+function downloadSide() {
+    if (!seleniumCommands || !seleniumCommands.length) return;
+    const feature = getFeature() || 'hasaki-test';
+    const sideData = buildSideFile(seleniumCommands, feature);
+    const blob = new Blob([JSON.stringify(sideData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const now = new Date();
+  const ts = now.getFullYear().toString()
+    + String(now.getMonth() + 1).padStart(2, '0')
+    + String(now.getDate()).padStart(2, '0')
+    + '_'
+    + String(now.getHours()).padStart(2, '0')
+    + String(now.getMinutes()).padStart(2, '0')
+    + String(now.getSeconds()).padStart(2, '0');
+  const slug = feature.replace(/\s+/g, '_').replace(/[^\w\u00C0-\u024F]/g, '');
+  a.download = `testcase_${slug}_${ts}.side`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    showToast('Đã tải file .side về máy!', 'success');
+}
+
+/* ═══════════════════════════════════════
+   MAIN FLOW – Generate
+═══════════════════════════════════════ */
+async function generate() {
+    const feature = getFeature();
+    if (!feature) {
+        showToast('Vui lòng chọn hoặc nhập chức năng cần kiểm thử!', 'error');
+        return;
     }
-    if (convertBtn) {
-        convertBtn.addEventListener('click', convertToSelenium);
+
+    const btn = document.getElementById('generateBtn');
+    const btnText = btn.querySelector('.btn-text');
+    const btnLoader = btn.querySelector('.btn-loader');
+    const resultPanel = document.getElementById('resultPanel');
+
+    // Loading state
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'flex';
+    resultPanel.style.display = 'none';
+    setStep(2);
+
+    try {
+        const prompt = buildPrompt(feature);
+        const rawText = await callGemini(prompt);
+        const testCases = parseCommands(rawText);
+
+        if (!testCases.length) throw new Error('Không có test case nào được tạo ra. Thử lại!');
+
+        seleniumCommands = testCases;
+        renderTable(testCases);
+        resultPanel.style.display = 'block';
+        setStep(3);
+        showToast(`✨ Đã tạo ${testCases.length} test cases!`, 'success', 5000);
+
+    } catch (err) {
+        console.error('Generate error:', err);
+        showToast(`Lỗi: ${err.message}`, 'error', 6000);
+        setStep(1);
+    } finally {
+        btn.disabled = false;
+        btnText.style.display = 'flex';
+        btnLoader.style.display = 'none';
     }
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', downloadSideFile);
-    }
-    window.downloadSideFile = downloadSideFile;
-});
+}
+
+/* ═══════════════════════════════════════
+   EVENT LISTENERS
+═══════════════════════════════════════ */
+document.getElementById('btnAddExtra').addEventListener('click', addExtraRow);
+document.getElementById('generateBtn').addEventListener('click', generate);
+document.getElementById('downloadBtn').addEventListener('click', downloadSide);
+
+// Expose handlers cho inline onclick (nếu có)
+window.removeExtraRow = removeExtraRow;
+window.addExtraRow = addExtraRow;

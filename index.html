@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hasaki · Auto Test Generator</title>
+  <meta name="description" content="Tự động sinh Selenium script kiểm thử Hasaki.vn bằng AI" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── BACKGROUND BLOBS ── -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+  <div class="bg-blob blob-3"></div>
+
+  <!-- ── TOAST ── -->
+  <div id="toast" class="toast" role="alert" aria-live="polite">
+    <span id="toastIcon" class="toast-icon">✓</span>
+    <span id="toastMsg">Thông báo</span>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-badge">
+        <span class="logo-icon">⚗️</span>
+      </div>
+      <h1 class="header-title">Auto Test Generator</h1>
+      <p class="header-sub">Sinh Selenium script tự động cho <strong>Hasaki.vn</strong> bằng Gemini AI</p>
+    </header>
+
+    <!-- Card -->
+    <section class="card" id="mainCard">
+
+      <!-- Step indicator -->
+      <div class="steps">
+        <div class="step active" id="step1">
+          <div class="step-num">1</div>
+          <span>Chọn chức năng</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step2">
+          <div class="step-num">2</div>
+          <span>Tạo script</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step3">
+          <div class="step-num">3</div>
+          <span>Tải về</span>
+        </div>
+      </div>
+
+      <!-- Feature pills -->
+      <div class="field-group">
+        <label class="field-label">Chức năng cần kiểm thử</label>
+        <div class="pill-group" id="pillGroup">
+          <button type="button" class="pill active" data-value="Đăng nhập">🔐 Đăng nhập</button>
+          <button type="button" class="pill" data-value="Đăng ký tài khoản">📝 Đăng ký</button>
+          <button type="button" class="pill" data-value="Tìm kiếm sản phẩm">🔍 Tìm kiếm</button>
+          <button type="button" class="pill" data-value="Thêm vào giỏ hàng">🛒 Giỏ hàng</button>
+          <button type="button" class="pill" data-value="Khác">✏️ Khác…</button>
+        </div>
+
+        <!-- Custom input (hiện khi chọn Khác) -->
+        <div class="custom-input-wrap" id="customWrap" style="display:none;">
+          <input
+            type="text"
+            id="customInput"
+            class="custom-input"
+            placeholder="Nhập tên chức năng cần kiểm thử…"
+            maxlength="120"
+          />
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div class="field-group">
+        <label class="field-label">Tùy chọn</label>
+        <div class="options-row">
+          <label class="toggle-label">
+            <input type="checkbox" id="optPause" checked />
+            <span class="toggle"></span>
+            Thêm pause giữa các bước
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" id="optWaitFor" checked />
+            <span class="toggle"></span>
+            waitForElementPresent trước input
+          </label>
+        </div>
+      </div>
+
+      <!-- Supplementary Info -->
+      <div class="field-group">
+        <label class="field-label">Thông tin bổ sung (tùy chọn)</label>
+        <p class="field-sub">Cung cấp thêm id/pass hoặc lưu ý để AI gen case thành công chính xác hơn.</p>
+        <div id="extraInfoContainer" class="extra-info-list">
+          <!-- Row 1 (default) -->
+          <div class="extra-info-row">
+            <input type="text" class="extra-info-input" placeholder="Ví dụ: Tài khoản đúng: 0377787281 / pass: Kieutrang04@">
+            <button type="button" class="btn-remove-row" onclick="removeExtraRow(this)">✕</button>
+          </div>
+        </div>
+        <button type="button" id="btnAddExtra" class="btn-add-extra">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Thêm thông tin
+        </button>
+      </div>
+
+      <!-- Generate button -->
+      <button type="button" id="generateBtn" class="btn-generate">
+        <span class="btn-text">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Tạo Selenium Script
+        </span>
+        <span class="btn-loader" style="display:none;">
+          <span class="spinner"></span> Đang tạo script…
+        </span>
+      </button>
+
+      <!-- Result panel (ẩn ban đầu) -->
+      <div id="resultPanel" class="result-panel" style="display:none;">
+        <div class="result-header">
+          <div class="result-meta">
+            <span class="result-badge">✓ Thành công</span>
+            <span id="cmdCount" class="cmd-count">0 commands</span>
+          </div>
+          <button type="button" id="downloadBtn" class="btn-download">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Tải file .side
+          </button>
+        </div>
+
+        <!-- Preview table -->
+        <div class="table-wrap">
+          <table id="previewTable" class="preview-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Command</th>
+                <th>Target</th>
+                <th>Value</th>
+                <th>Mô tả</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      Powered by <strong>Gemini 2.5 Flash</strong> · Hasaki.vn Test Suite
+    </footer>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
